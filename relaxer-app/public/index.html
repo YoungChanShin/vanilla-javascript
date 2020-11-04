@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.8.2/css/all.min.css"
+  />
+    <title>Lilac</title>
+  </head>
+  <body>
+    <!-- The core Firebase JS SDK is always required and must be listed first -->
+<script src="/__/firebase/7.24.0/firebase-app.js"></script>
+
+<!-- TODO: Add SDKs for Firebase products that you want to use
+     https://firebase.google.com/docs/web/setup#available-libraries -->
+<script src="/__/firebase/7.24.0/firebase-analytics.js"></script>
+
+<!-- Initialize Firebase -->
+<script src="/__/firebase/init.js"></script>
+<header>
+  <h1>MediaCapture, MediaRecorder and Streams API</h1>
+</header>
+<main>
+  <p><button id="btnStart">START RECORDING</button><br/>
+  <button id="btnStop">STOP RECORDING</button></p>
+  
+  <video controls></video>
+  
+  <video id="vid2" controls></video>
+  
+  <!-- could save to canvas and do image manipulation and saving too -->
+</main>    
+<script>
+  
+  let constraintObj = { 
+      audio: true, 
+      video: { 
+          facingMode: "user", 
+          width: { min: 200, ideal: 400, max: 700 },
+          height: { min: 400, ideal: 450, max: 800 } 
+      } 
+  }; 
+  if (navigator.mediaDevices === undefined) {
+      navigator.mediaDevices = {};
+      navigator.mediaDevices.getUserMedia = function(constraintObj) {
+          let getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+          if (!getUserMedia) {
+              return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+          }
+          return new Promise(function(resolve, reject) {
+              getUserMedia.call(navigator, constraintObj, resolve, reject);
+          });
+      }
+  }else{
+      navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+          devices.forEach(device=>{
+              console.log(device.kind.toUpperCase(), device.label);
+              //, device.deviceId
+          })
+      })
+      .catch(err=>{
+          console.log(err.name, err.message);
+      })
+  }
+
+  navigator.mediaDevices.getUserMedia(constraintObj)
+  .then(function(mediaStreamObj) {
+      //connect the media stream to the first video element
+      let video = document.querySelector('video');
+      if ("srcObject" in video) {
+          video.srcObject = mediaStreamObj;
+      } else {
+          //old version
+          video.src = window.URL.createObjectURL(mediaStreamObj);
+      }
+      
+      video.onloadedmetadata = function(ev) {
+          //show in the video element what is being captured by the webcam
+          video.play();
+      };
+      
+      //add listeners for saving video/audio
+      let start = document.getElementById('btnStart');
+      let stop = document.getElementById('btnStop');
+      let vidSave = document.getElementById('vid2');
+      let mediaRecorder = new MediaRecorder(mediaStreamObj);
+      let chunks = [];
+      
+      start.addEventListener('click', (ev)=>{
+          mediaRecorder.start();
+          console.log("===>",mediaRecorder.state);
+      })
+      stop.addEventListener('click', (ev)=>{
+          mediaRecorder.stop();
+          console.log(mediaRecorder.state);
+      });
+      mediaRecorder.ondataavailable = function(ev) {
+          chunks.push(ev.data);
+      }
+      mediaRecorder.onstop = (ev)=>{
+          let blob = new Blob(chunks, { 'type' : 'video/webm;' });
+          chunks = [];
+          let videoURL = window.URL.createObjectURL(blob);
+          vidSave.src = videoURL;
+          console.log(videoURL)
+
+          let aElm = document.createElement('a');
+          aElm.href = videoURL;
+          aElm.download = 'video/webm';
+          aElm.click();
+
+          let formdata = new FormData();
+          // formdata.append("fname", "video.webm");
+          formdata.append("data", blob);
+          // formdata.append("key","value")
+
+          let xhr = new XMLHttpRequest();
+          xhr.open("POST", "http://localhost:3000/", false);
+          xhr.send(formdata);
+      }
+  })
+  .catch(function(err) { 
+      console.log(err.name, err.message); 
+  });
+  
+  /*********************************
+  getUserMedia returns a Promise
+  resolve - returns a MediaStream Object
+  reject returns one of the following errors
+  AbortError - generic unknown cause
+  NotAllowedError (SecurityError) - user rejected permissions
+  NotFoundError - missing media track
+  NotReadableError - user permissions given but hardware/OS error
+  OverconstrainedError - constraint video settings preventing
+  TypeError - audio: false, video: false
+  *********************************/
+</script>
+    <script src="script.js"></script>
+  </body>
+</html>
